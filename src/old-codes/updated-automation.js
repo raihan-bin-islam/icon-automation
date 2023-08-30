@@ -1,41 +1,25 @@
-import { transform } from "@svgr/core";
-import path from "path";
-import fs from "fs";
-import {
-  SeparateComponentTemplate,
-  convertFilenameToJsxComponents,
-  getFiles,
-  getIconDataFromPath,
-  jsxOnlyTemplate,
-  kebabToPascalWithNumbers,
-  namedConditionalExportTemplate,
-  namedConditionalExportTemplateLinear,
-} from "./helper.js";
-import { svgrOptions } from "./constants.js";
+import { transform } from '@svgr/core';
+import fs from 'fs';
+import { SeparateComponentTemplate, getFiles, getIconDataFromPath } from './helper.js';
+import { svgrOptions } from '../../constants/defaults.js';
 
 // OUTPUT DATA
 let categories = [];
 let iconData = [];
-// Identifier to replace this with the actual jsx later
-const replaceTag = "<></>";
 
 const log = console.log;
-const readFromLinear = "./petraui/linear/";
-const readFromBold = "./petraui/bold/";
-const readFrom = "./petraui/";
-const writeTo = "./icons/";
-const fileReadDefaultOptions = {
-  encoding: "utf8",
-  flag: "r",
-};
+const readFromLinear = './petraui/linear/';
+const readFromBold = './petraui/bold/';
+const readFrom = './petraui/';
+const writeTo = './icons/';
+
 // Files
-const exportedFiles = getFiles(writeTo);
 const linearFiles = getFiles(readFromLinear);
-const boldFiles = getFiles(readFromLinear);
+const boldFiles = getFiles(readFromBold);
 
 linearFiles.forEach(async (linearFilePath, index) => {
   const { id, name: iconName, category } = getIconDataFromPath(linearFilePath);
-  const componentExt = ".tsx";
+  const componentExt = '.tsx';
   const componentFile = iconName + componentExt;
 
   const boldFilePath = boldFiles.find((path) => {
@@ -57,16 +41,13 @@ linearFiles.forEach(async (linearFilePath, index) => {
     iconData = [...iconData, { id, name: iconName, category }];
   }
 
-  const linearIconSvgCode = fs.readFileSync(
-    linearFilePath,
-    fileReadDefaultOptions
-  );
+  const linearIconSvgCode = fs.readFileSync(linearFilePath, fileReadDefaultOptions);
 
   const LinearIcon = await transform(
     linearIconSvgCode,
     {
       ...svgrOptions,
-      svgProps: { ...svgrOptions.svgProps, stroke: "currentColor" },
+      svgProps: { ...svgrOptions.svgProps, stroke: 'currentColor' },
       template: SeparateComponentTemplate,
     },
     {
@@ -75,16 +56,13 @@ linearFiles.forEach(async (linearFilePath, index) => {
   );
 
   if (boldFilePath) {
-    const boldIconSvgCode = fs.readFileSync(
-      boldFilePath,
-      fileReadDefaultOptions
-    );
+    const boldIconSvgCode = fs.readFileSync(boldFilePath, fileReadDefaultOptions);
 
     const BoldIcon = await transform(
       boldIconSvgCode,
       {
         ...svgrOptions,
-        svgProps: { ...svgrOptions.svgProps, fill: "currentColor" },
+        svgProps: { ...svgrOptions.svgProps, fill: 'currentColor' },
         template: SeparateComponentTemplate,
       },
       {
@@ -92,8 +70,8 @@ linearFiles.forEach(async (linearFilePath, index) => {
       }
     );
 
-    const customTemplate = `import * as React from "react";
-        import { IconProps } from "./types.d.ts";
+    const customTemplate = `
+        import type { IconProps } from "../types.d.ts";
         export const ${iconName} = (props:IconProps) =>{
             return props.variant === "solid" ? <${iconName}Solid {...props} /> : <${iconName}Linear {...props} />;
         };
@@ -102,14 +80,14 @@ linearFiles.forEach(async (linearFilePath, index) => {
         ${BoldIcon}
     `;
     const jsxComponentCode = await transform(customTemplate, {
-      plugins: ["@svgr/plugin-prettier"],
+      plugins: ['@svgr/plugin-prettier'],
     });
 
     fs.writeFileSync(`${writeTo}${componentFile}`, jsxComponentCode);
     return;
   }
-  const customTemplate = `import * as React from "react";
-        import { IconProps } from "./types.d.ts";
+  const customTemplate = `
+        import type { IconProps } from "../types.d.ts";
         export const ${iconName} = (props:IconProps)=>{
             return props.variant === "solid"?null:<${iconName}Linear {...props} />;
         };
@@ -118,7 +96,7 @@ linearFiles.forEach(async (linearFilePath, index) => {
     `;
 
   const jsxComponentCode = await transform(customTemplate, {
-    plugins: ["@svgr/plugin-prettier"],
+    plugins: ['@svgr/plugin-prettier'],
   });
 
   fs.writeFileSync(`${writeTo}${componentFile}`, jsxComponentCode);
@@ -126,7 +104,7 @@ linearFiles.forEach(async (linearFilePath, index) => {
 
 const pathToIconData = `./icon-data/icon.js`;
 // Icon Data Manipulation
-fs.writeFileSync(pathToIconData, "");
+fs.writeFileSync(pathToIconData, '');
 fs.appendFileSync(pathToIconData, `import {\n`);
 iconData?.map(({ id, name, category }) => {
   fs.appendFileSync(pathToIconData, `${name},\n`);
@@ -144,19 +122,9 @@ fs.appendFileSync(pathToIconData, `\n]`);
 
 // File Export Manipulation
 const pathToExportFile = `./icon-data/exports.js`;
-fs.writeFileSync(pathToExportFile, "");
-iconData.map(({ name }) =>
-  fs.appendFileSync(pathToExportFile, `export * from "./${name}";\n`)
-);
+fs.writeFileSync(pathToExportFile, '');
+iconData.map(({ name }) => fs.appendFileSync(pathToExportFile, `export * from "./${name}";\n`));
 
-// Remove empty tags from jsx
-
-exportedFiles.forEach((file) => {
-  const data = fs.readFileSync(file, fileReadDefaultOptions);
-  if (data.includes(replaceTag)) {
-    log("yes");
-    log(data);
-    const updatedData = data?.replace("<></>", "null");
-    fs.writeFileSync(file, updatedData);
-  }
-});
+const pathToExportFileInsideIcons = `./icons/index.ts`;
+fs.writeFileSync(pathToExportFileInsideIcons, '');
+iconData.map(({ name }) => fs.appendFileSync(pathToExportFileInsideIcons, `export * from "./${name}";\n`));
